@@ -1,10 +1,9 @@
 use std::io::{Read, stdin};
-use std::error::Error;
 use std::collections::HashMap;
 
-use crate::errs::{ParseError, err_msg_pos};
+use crate::errs::{BFParseError, err_msg_pos};
 
-fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, Error> {
+fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, String> {
     let mut unclosed: Vec<usize> = Vec::new();
     let mut brackets: HashMap<usize, usize> = HashMap::new();
     for (i, ch) in buf.chars().enumerate() {
@@ -17,20 +16,21 @@ fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, Error> {
                     brackets.insert(i, pos);
                     brackets.insert(pos, i);
                 } else {
-                    return Err(Error::new(err_msg_pos(ParseError::BRA_NO_OPEN, i))
+                    return Err(
+                        err_msg_pos(BFParseError::BRA_NO_OPEN.to_string(), i))
                 }
             }
             _ => ()
         }
     }
 
-    match unclosed.pop() {        
-        Some(pos) => Err(err_msg_pos(ParseError::BRA_NO_CLOSE, pos)),
+    match unclosed.pop() {
+        Some(pos) => Err(err_msg_pos(BFParseError::BRA_NO_CLOSE.to_string(), pos)),
         None => Ok(brackets)
     }
 }
 
-pub fn parse(buf: String) -> Result<(), &'static str> {
+pub fn parse(buf: String) -> Result<(), String> {
     const CELLS_AMOUNT: usize = 30;
     let mut cells: Vec<u8> = vec![0; CELLS_AMOUNT];
     let mut cell_ptr: usize = 0;
@@ -47,25 +47,25 @@ pub fn parse(buf: String) -> Result<(), &'static str> {
         match s {
             '+' => {
                 if cells[cell_ptr] == 255 {
-                    break Err(String::from("Attempt to add with overflow"))
+                    break Err(BFParseError::CELL_MAX_CONSTR_OVRFL.to_string())
                 }
                 cells[cell_ptr] += 1;
             }
             '-' => {
                 if cells[cell_ptr] == 0 {
-                    break Err(String::from("Attempt to set a negative cell value"))
+                    break Err(BFParseError::CELL_MIN_CONSTR_OVRFL.to_string())
                 }
                 cells[cell_ptr] -= 1;
             }
             '>' => {
                 cell_ptr += 1;
                 if cell_ptr == CELLS_AMOUNT {
-                    break Err(String::from("Exceeded max cells amount"))
+                    break Err(BFParseError::CELL_NO_MORE.to_string())
                 }
             }
             '<' => {
                 if cell_ptr == 0 {
-                    break Err(String::from("Attempt to use a cell with negative index"))
+                    break Err(BFParseError::CELL_NEGATIVE_IDX.to_string())
                 }
                 cell_ptr -= 1;
             }
@@ -76,9 +76,9 @@ pub fn parse(buf: String) -> Result<(), &'static str> {
                 let ch: u8 = match stdin().bytes().next() {
                     Some(c) => match c {
                         Ok(chr) => chr as u8,
-                        Err(e) => break Err(String::from(e.description()))
+                        Err(_) => break Err(BFParseError::IO_STDIN_ERR.to_string())
                     },
-                    None => break Err(String::from("Error while reading from stdin"))
+                    None => break Err(BFParseError::IO_STDIN_ERR.to_string())
                 };
                 cells[cell_ptr] = ch;
             },
@@ -93,14 +93,13 @@ pub fn parse(buf: String) -> Result<(), &'static str> {
                 }
             },
             _ => {
-                break Err(format!("Undefined symbol '{}'", s))
+                break Err(format!("{} '{}'", BFParseError::IO_UNDEF_CHAR, s))
             }
         }
         head_ptr += 1;
     };
-    
     if let Err(e) = res {
-        return Err(gen_err_str(e, head_ptr));
+        return Err(err_msg_pos(e, head_ptr));
     }
 
     Ok(())
@@ -141,6 +140,7 @@ mod tests {
     #[test]
     fn parser_unknown_symbol() {
         let input = String::from("++++++q");
-        assert!(parse(input).is_err());
+        let result = parse(input);
+        assert!(result.is_err());
     }
 }
