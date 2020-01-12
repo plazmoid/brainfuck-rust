@@ -35,12 +35,13 @@ pub fn parse(buf: String) -> Result<(), String> {
     let mut cells: Vec<u8> = vec![0; CELLS_AMOUNT];
     let mut cell_ptr: usize = 0;
     let mut head_ptr = 0;
-    let mut prog_symbols = buf.chars();
+    let prog_symbols: Vec<char> = buf.chars().collect();
     let brackets = analyse_brackets(&buf)?;
+    //eprintln!("buf: {:?}", prog_symbols);
 
     let res: Result<(), String> = loop {
-        let s: char = match prog_symbols.nth(head_ptr) {
-            Some(s) => s,
+        let s: char = match prog_symbols.get(head_ptr) {
+            Some(s) => *s,
             None => break Ok(())
         };
 
@@ -50,28 +51,28 @@ pub fn parse(buf: String) -> Result<(), String> {
                     break Err(BFParseError::CELL_MAX_CONSTR_OVRFL.to_string())
                 }
                 cells[cell_ptr] += 1;
-            }
+            },
             '-' => {
                 if cells[cell_ptr] == 0 {
                     break Err(BFParseError::CELL_MIN_CONSTR_OVRFL.to_string())
                 }
                 cells[cell_ptr] -= 1;
-            }
+            },
             '>' => {
                 cell_ptr += 1;
                 if cell_ptr == CELLS_AMOUNT {
                     break Err(BFParseError::CELL_NO_MORE.to_string())
                 }
-            }
+            },
             '<' => {
                 if cell_ptr == 0 {
                     break Err(BFParseError::CELL_NEGATIVE_IDX.to_string())
                 }
                 cell_ptr -= 1;
-            }
+            },
             '.' => {
                 println!("{}", cells[cell_ptr] as char);
-            }
+            },
             ',' => {
                 let ch: u8 = match stdin().bytes().next() {
                     Some(c) => match c {
@@ -92,6 +93,8 @@ pub fn parse(buf: String) -> Result<(), String> {
                     head_ptr = brackets[&head_ptr]
                 }
             },
+            ' ' | '\n' | '\t' => (),
+
             _ => {
                 break Err(format!("{} '{}'", BFParseError::IO_UNDEF_CHAR, s))
             }
@@ -101,6 +104,7 @@ pub fn parse(buf: String) -> Result<(), String> {
     if let Err(e) = res {
         return Err(err_msg_pos(e, head_ptr));
     }
+    //eprintln!("{:?}", cells);
 
     Ok(())
 }
@@ -140,6 +144,13 @@ mod tests {
     #[test]
     fn parser_unknown_symbol() {
         let input = String::from("++++++q");
+        let result = parse(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parser_negative_cell_index() {
+        let input = String::from("++++<");
         let result = parse(input);
         assert!(result.is_err());
     }

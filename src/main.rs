@@ -25,6 +25,11 @@ fn read_prog(mut args: env::Args) -> Result<String, String> {
 
 }
 
+// TODO:
+// add error cursor
+// read from file
+// debug!
+
 fn main() {
     let program = match read_prog(env::args()) {
         Ok(prog) => prog,
@@ -35,7 +40,7 @@ fn main() {
     };
 
     if let Err(e) = parse(program) {
-        eprintln!("Parser error:\n---> {}", e);
+        eprintln!("{}", e);
         exit(1);
     }
 }
