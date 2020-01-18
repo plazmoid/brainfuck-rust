@@ -27,7 +27,7 @@ fn read_prog(mut args: env::Args) -> Result<String, String> {
                     };
                     return Ok(result);
                 },
-                Err(_) => return Ok(arg)
+                Err(e) => return Err(e.to_string())
             }
         }
         None => {
@@ -43,7 +43,6 @@ fn read_prog(mut args: env::Args) -> Result<String, String> {
 
 // TODO:
 // add error cursor
-// read from file
 // debug!
 
 fn main() {
