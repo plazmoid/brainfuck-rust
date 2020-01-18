@@ -1,7 +1,7 @@
-use std::io::{Read, stdin};
 use std::collections::HashMap;
+use std::io::{stdin, Read};
 
-use crate::errors::{BFParseError, err_msg_pos};
+use crate::errors::{err_msg_pos, BFParseError};
 
 fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, String> {
     let mut unclosed: Vec<usize> = Vec::new();
@@ -16,22 +16,21 @@ fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, String> {
                     brackets.insert(i, pos);
                     brackets.insert(pos, i);
                 } else {
-                    return Err(
-                        err_msg_pos(BFParseError::BRA_NO_OPEN.to_string(), i))
+                    return Err(err_msg_pos(BFParseError::BRA_NO_OPEN.to_string(), i));
                 }
             }
-            _ => ()
+            _ => (),
         }
     }
 
     match unclosed.pop() {
         Some(pos) => Err(err_msg_pos(BFParseError::BRA_NO_CLOSE.to_string(), pos)),
-        None => Ok(brackets)
+        None => Ok(brackets),
     }
 }
 
 pub fn parse(buf: String) -> Result<(), String> {
-    const CELLS_AMOUNT: usize = 30;
+    const CELLS_AMOUNT: usize = 30000;
     let mut cells: Vec<u8> = vec![0; CELLS_AMOUNT];
     let mut cell_ptr: usize = 0;
     let mut head_ptr = 0;
@@ -42,62 +41,60 @@ pub fn parse(buf: String) -> Result<(), String> {
     let res: Result<(), String> = loop {
         let s: char = match prog_symbols.get(head_ptr) {
             Some(s) => *s,
-            None => break Ok(())
+            None => break Ok(()),
         };
 
         match s {
             '+' => {
                 if cells[cell_ptr] == 255 {
-                    break Err(BFParseError::CELL_MAX_CONSTR_OVRFL.to_string())
+                    break Err(BFParseError::CELL_MAX_CONSTR_OVRFL.to_string());
                 }
                 cells[cell_ptr] += 1;
-            },
+            }
             '-' => {
                 if cells[cell_ptr] == 0 {
-                    break Err(BFParseError::CELL_MIN_CONSTR_OVRFL.to_string())
+                    break Err(BFParseError::CELL_MIN_CONSTR_OVRFL.to_string());
                 }
                 cells[cell_ptr] -= 1;
-            },
+            }
             '>' => {
                 cell_ptr += 1;
                 if cell_ptr == CELLS_AMOUNT {
-                    break Err(BFParseError::CELL_NO_MORE.to_string())
+                    break Err(BFParseError::CELL_NO_MORE.to_string());
                 }
-            },
+            }
             '<' => {
                 if cell_ptr == 0 {
-                    break Err(BFParseError::CELL_NEGATIVE_IDX.to_string())
+                    break Err(BFParseError::CELL_NEGATIVE_IDX.to_string());
                 }
                 cell_ptr -= 1;
-            },
+            }
             '.' => {
                 print!("{}", cells[cell_ptr] as char);
-            },
+            }
             ',' => {
                 let ch: u8 = match stdin().bytes().next() {
                     Some(c) => match c {
                         Ok(chr) => chr as u8,
-                        Err(_) => break Err(BFParseError::IO_STDIN_ERR.to_string())
+                        Err(_) => break Err(BFParseError::IO_STDIN_ERR.to_string()),
                     },
-                    None => break Err(BFParseError::IO_STDIN_ERR.to_string())
+                    None => break Err(BFParseError::IO_STDIN_ERR.to_string()),
                 };
                 cells[cell_ptr] = ch;
-            },
+            }
             '[' => {
                 if cells[cell_ptr] == 0 {
                     head_ptr = brackets[&head_ptr];
                 }
-            },
+            }
             ']' => {
                 if cells[cell_ptr] != 0 {
                     head_ptr = brackets[&head_ptr]
                 }
-            },
+            }
             ' ' | '\n' | '\t' => (),
 
-            _ => {
-                break Err(format!("{} '{}'", BFParseError::IO_UNDEF_CHAR, s))
-            }
+            _ => break Err(format!("{} '{}'", BFParseError::IO_UNDEF_CHAR, s)),
         }
         head_ptr += 1;
     };
@@ -108,7 +105,6 @@ pub fn parse(buf: String) -> Result<(), String> {
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

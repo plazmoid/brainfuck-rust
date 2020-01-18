@@ -1,15 +1,12 @@
 use std::{
-    io::{
-        stdin,
-        prelude::*
-    },
-    process::exit,
     env,
-    fs::File
+    fs::File,
+    io::{prelude::*, stdin},
+    process::exit,
 };
 
-mod parser;
 mod errors;
+mod parser;
 use errors::BFParseError;
 
 const MAX_PROG_LEN: usize = 1000000;
@@ -26,23 +23,23 @@ fn read_prog(mut args: env::Args) -> Result<String, String> {
                         return Err(BFParseError::IO_READING_ERR.to_string());
                     };
                     return Ok(result);
-                },
-                Err(e) => return Err(e.to_string())
+                }
+                Err(e) => return Err(e.to_string()),
             }
         }
         None => {
             let mut inp = String::with_capacity(MAX_PROG_LEN);
             match stdin().read_line(&mut inp) {
                 Ok(_) => Ok(inp), //println!("{:?} bytes read", n),
-                Err(e) => panic!("WTF??? {}", e)
+                Err(e) => panic!("WTF??? {}", e),
             }
         }
     }
-
 }
 
 // TODO:
 // add error cursor
+//// break source by 30 chars on line and highlight
 // debug!
 
 fn main() {
@@ -55,7 +52,7 @@ fn main() {
     };
 
     if let Err(e) = parser::parse(program) {
-        eprintln!("{}", e);
+        eprintln!("Error: \n{}", e);
         exit(1);
     }
 }
