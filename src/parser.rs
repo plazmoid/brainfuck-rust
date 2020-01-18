@@ -71,7 +71,7 @@ pub fn parse(buf: String) -> Result<(), String> {
                 cell_ptr -= 1;
             },
             '.' => {
-                println!("{}", cells[cell_ptr] as char);
+                print!("{}", cells[cell_ptr] as char);
             },
             ',' => {
                 let ch: u8 = match stdin().bytes().next() {
