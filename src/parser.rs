@@ -1,7 +1,7 @@
 use std::io::{Read, stdin};
 use std::collections::HashMap;
 
-use crate::errs::{BFParseError, err_msg_pos};
+use crate::errors::{BFParseError, err_msg_pos};
 
 fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, String> {
     let mut unclosed: Vec<usize> = Vec::new();

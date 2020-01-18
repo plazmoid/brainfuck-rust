@@ -3,9 +3,7 @@ use std::process::exit;
 use std::env;
 
 mod parser;
-use parser::parse;
-
-mod errs;
+mod errors;
 
 const MAX_PROG_LEN: usize = 1000000;
 
@@ -39,7 +37,7 @@ fn main() {
         }
     };
 
-    if let Err(e) = parse(program) {
+    if let Err(e) = parser::parse(program) {
         eprintln!("{}", e);
         exit(1);
     }
