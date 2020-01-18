@@ -8,6 +8,7 @@ impl<'a> BFParseError {
     pub const CELL_NO_MORE: &'a str = "Out of cells";
     pub const CELL_NEGATIVE_IDX: &'a str = "Cell pointer is negative";
     pub const IO_STDIN_ERR: &'a str = "Error while reading from stdin";
+    pub const IO_READING_ERR: &'a str = "Error reading from file";
     pub const IO_UNDEF_CHAR: &'a str = "Undefined symbol";
 }
 

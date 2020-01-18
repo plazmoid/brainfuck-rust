@@ -1,17 +1,35 @@
-use std::io::stdin;
-use std::process::exit;
-use std::env;
+use std::{
+    io::{
+        stdin,
+        prelude::*
+    },
+    process::exit,
+    env,
+    fs::File
+};
 
 mod parser;
 mod errors;
+use errors::BFParseError;
 
 const MAX_PROG_LEN: usize = 1000000;
 
 fn read_prog(mut args: env::Args) -> Result<String, String> {
     args.next();
     match args.next() {
-        //TODO: add reading from file
-        Some(arg) => return Ok(arg.trim().to_string()),
+        Some(mut arg) => {
+            let mut result = String::new();
+            arg = arg.trim().to_string();
+            match File::open(&arg) {
+                Ok(mut f) => {
+                    if let Err(_) = f.read_to_string(&mut result) {
+                        return Err(BFParseError::IO_READING_ERR.to_string());
+                    };
+                    return Ok(result);
+                },
+                Err(_) => return Ok(arg)
+            }
+        }
         None => {
             let mut inp = String::with_capacity(MAX_PROG_LEN);
             match stdin().read_line(&mut inp) {
