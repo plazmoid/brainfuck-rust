@@ -20,7 +20,7 @@ fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, BFError> {
                     brackets.insert(i, pos);
                     brackets.insert(pos, i);
                 } else {
-                    return Err(BFError::new(BraNoOpen, i, None));
+                    return Err(BFError::new(BraNoOpen, Some(i), None));
                 }
             }
             _ => (),
@@ -28,7 +28,7 @@ fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, BFError> {
     }
 
     match unclosed.pop() { 
-        Some(pos) => Err(BFError::new(BraNoClose, pos, None)),
+        Some(pos) => Err(BFError::new(BraNoClose, Some(pos), None)),
         None => Ok(brackets),
     }
 }
@@ -41,7 +41,6 @@ pub fn parse(buf: String) -> Result<(), BFError> {
     let mut curr_symbol = '\0';
     let prog_symbols: Vec<char> = buf.chars().collect();
     let brackets = analyse_brackets(&buf)?;
-    //eprintln!("buf: {:?}", prog_symbols);
 
     let res: Result<(), BFParseError> = loop {
         curr_symbol = match prog_symbols.get(head_ptr) {
@@ -105,7 +104,7 @@ pub fn parse(buf: String) -> Result<(), BFError> {
     };
     
     if let Err(e_type) = res {
-        return Err(BFError::new(e_type, head_ptr, Some(curr_symbol.to_string())));
+        return Err(BFError::new(e_type, Some(head_ptr), Some(curr_symbol.to_string())));
     }
     Ok(())
 }

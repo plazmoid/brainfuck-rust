@@ -41,16 +41,17 @@ const ERR_PRINTABLE_VALS: [BFParseError; 1] = [
 
 type ErrArgs = Option<String>;
 type ErrFilename = Option<String>;
+type ErrPos = Option<usize>;
 
 pub struct BFError {
     e_file: ErrFilename,
     e_type: BFParseError,
-    e_pos: usize,
+    e_pos: ErrPos,
     e_args: ErrArgs
 }
 
 impl BFError {
-    pub fn new(err: BFParseError, pos: usize, args: ErrArgs) -> Self {
+    pub fn new(err: BFParseError, pos: ErrPos, args: ErrArgs) -> Self {
         BFError {
             e_file: env::args().nth(1),
             e_type: err, 
@@ -72,8 +73,10 @@ impl fmt::Debug for BFError {
         let field = format!("Description: {:?}", self.e_type);
         result.push(field);
 
-        let field = format!("Position: {}", self.e_pos);
-        result.push(field);
+        if self.e_pos.is_some() {
+            let field = format!("Position: {}", self.e_pos.as_ref().unwrap());
+            result.push(field);
+        }
 
         if self.e_args.is_some() && ERR_PRINTABLE_VALS.contains(&self.e_type) {
             let field = format!("Value: '{}'", self.e_args.as_ref().unwrap());
@@ -84,7 +87,7 @@ impl fmt::Debug for BFError {
             .map(|s| String::from(ERR_PROMPT) + s)
             .collect::<Vec<String>>()
             .join("\n");
-            
+
         write!(f, "{}", res_msg)
     }
 }
