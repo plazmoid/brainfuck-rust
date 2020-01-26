@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 use std::io::{stdin, Read};
 
-use crate::errors::{err_msg_pos, BFParseError};
+use crate::errors::{
+    BFError, 
+    BFParseError,
+    BFParseError::*
+};
 
-fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, String> {
+fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, BFError> {
     let mut unclosed: Vec<usize> = Vec::new();
     let mut brackets: HashMap<usize, usize> = HashMap::new();
     for (i, ch) in buf.chars().enumerate() {
@@ -16,56 +20,57 @@ fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, String> {
                     brackets.insert(i, pos);
                     brackets.insert(pos, i);
                 } else {
-                    return Err(err_msg_pos(BFParseError::BRA_NO_OPEN.to_string(), i));
+                    return Err(BFError::new(BraNoOpen, i, None));
                 }
             }
             _ => (),
         }
     }
 
-    match unclosed.pop() {
-        Some(pos) => Err(err_msg_pos(BFParseError::BRA_NO_CLOSE.to_string(), pos)),
+    match unclosed.pop() { 
+        Some(pos) => Err(BFError::new(BraNoClose, pos, None)),
         None => Ok(brackets),
     }
 }
 
-pub fn parse(buf: String) -> Result<(), String> {
+pub fn parse(buf: String) -> Result<(), BFError> {
     const CELLS_AMOUNT: usize = 30000;
     let mut cells: Vec<u8> = vec![0; CELLS_AMOUNT];
     let mut cell_ptr: usize = 0;
     let mut head_ptr = 0;
+    let mut curr_symbol = '\0';
     let prog_symbols: Vec<char> = buf.chars().collect();
     let brackets = analyse_brackets(&buf)?;
     //eprintln!("buf: {:?}", prog_symbols);
 
-    let res: Result<(), String> = loop {
-        let s: char = match prog_symbols.get(head_ptr) {
+    let res: Result<(), BFParseError> = loop {
+        curr_symbol = match prog_symbols.get(head_ptr) {
             Some(s) => *s,
             None => break Ok(()),
         };
 
-        match s {
+        match curr_symbol {
             '+' => {
                 if cells[cell_ptr] == 255 {
-                    break Err(BFParseError::CELL_MAX_CONSTR_OVRFL.to_string());
+                    break Err(CellMaxConstrOvrfl);
                 }
                 cells[cell_ptr] += 1;
             }
             '-' => {
                 if cells[cell_ptr] == 0 {
-                    break Err(BFParseError::CELL_MIN_CONSTR_OVRFL.to_string());
+                    break Err(CellMinConstrOvrfl);
                 }
                 cells[cell_ptr] -= 1;
             }
             '>' => {
                 cell_ptr += 1;
                 if cell_ptr == CELLS_AMOUNT {
-                    break Err(BFParseError::CELL_NO_MORE.to_string());
+                    break Err(CellNoMore);
                 }
             }
             '<' => {
                 if cell_ptr == 0 {
-                    break Err(BFParseError::CELL_NEGATIVE_IDX.to_string());
+                    break Err(CellNegativeIdx);
                 }
                 cell_ptr -= 1;
             }
@@ -76,9 +81,9 @@ pub fn parse(buf: String) -> Result<(), String> {
                 let ch: u8 = match stdin().bytes().next() {
                     Some(c) => match c {
                         Ok(chr) => chr as u8,
-                        Err(_) => break Err(BFParseError::IO_STDIN_ERR.to_string()),
+                        Err(_) => break Err(IoStdinErr),
                     },
-                    None => break Err(BFParseError::IO_STDIN_ERR.to_string()),
+                    None => break Err(IoStdinErr),
                 };
                 cells[cell_ptr] = ch;
             }
@@ -94,15 +99,14 @@ pub fn parse(buf: String) -> Result<(), String> {
             }
             ' ' | '\n' | '\t' => (),
 
-            _ => break Err(format!("{} '{}'", BFParseError::IO_UNDEF_CHAR, s)),
+            _ => break Err(IoUndefChar),
         }
         head_ptr += 1;
     };
-    if let Err(e) = res {
-        return Err(err_msg_pos(e, head_ptr));
+    
+    if let Err(e_type) = res {
+        return Err(BFError::new(e_type, head_ptr, Some(curr_symbol.to_string())));
     }
-    //eprintln!("{:?}", cells);
-
     Ok(())
 }
 
