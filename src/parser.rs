@@ -1,11 +1,20 @@
 use std::collections::HashMap;
 use std::io::{stdin, Read};
+use std::cell::{
+    RefCell
+};
 
 use crate::errors::{
     BFError, 
     BFParseError,
     BFParseError::*
 };
+
+pub const MAX_PROG_LEN: usize = 1000000;
+
+thread_local!(
+    pub static PROG: RefCell<String> = RefCell::new(String::new())
+);
 
 fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, BFError> {
     let mut unclosed: Vec<usize> = Vec::new();
@@ -33,14 +42,19 @@ fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, BFError> {
     }
 }
 
-pub fn parse(buf: String) -> Result<(), BFError> {
+pub fn parse(program: String) -> Result<(), BFError> {
     const CELLS_AMOUNT: usize = 30000;
+    let mut to_print: Vec<char> = Vec::new();
     let mut cells: Vec<u8> = vec![0; CELLS_AMOUNT];
     let mut cell_ptr: usize = 0;
     let mut head_ptr = 0;
     let mut curr_symbol = '\0';
-    let prog_symbols: Vec<char> = buf.chars().collect();
-    let brackets = analyse_brackets(&buf)?;
+    let prog_symbols: Vec<char> = program.chars().collect();
+    let brackets = analyse_brackets(&program)?;
+    
+    PROG.with(|prog| {
+        *prog.borrow_mut() += &program;
+    });
 
     let res: Result<(), BFParseError> = loop {
         curr_symbol = match prog_symbols.get(head_ptr) {
@@ -74,7 +88,7 @@ pub fn parse(buf: String) -> Result<(), BFError> {
                 cell_ptr -= 1;
             }
             '.' => {
-                print!("{}", cells[cell_ptr] as char);
+                to_print.push(cells[cell_ptr] as char);
             }
             ',' => {
                 let ch: u8 = match stdin().bytes().next() {
@@ -105,6 +119,9 @@ pub fn parse(buf: String) -> Result<(), BFError> {
     
     if let Err(e_type) = res {
         return Err(BFError::new(e_type, Some(head_ptr), Some(curr_symbol.to_string())));
+    }
+    if to_print.len() > 0 {
+        print!("{}", to_print.into_iter().collect::<String>());
     }
     Ok(())
 }

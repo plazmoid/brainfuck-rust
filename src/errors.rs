@@ -1,6 +1,11 @@
 use std::{
     fmt,
-    env
+    env,
+    cmp::{max, min}
+};
+
+use crate::parser::{
+    PROG
 };
 
 #[derive(PartialEq)]
@@ -33,7 +38,7 @@ impl fmt::Debug for BFParseError {
     }
 }
 
-const ERR_PROMPT: &str = "> ";
+const ERR_PROMPT: &str = ">>> ";
 // a crutch, vec of error types that allowed to print values
 const ERR_PRINTABLE_VALS: [BFParseError; 1] = [
     BFParseError::IoUndefChar
@@ -73,13 +78,25 @@ impl fmt::Debug for BFError {
         let field = format!("Description: {:?}", self.e_type);
         result.push(field);
 
-        if self.e_pos.is_some() {
-            let field = format!("Position: {}", self.e_pos.as_ref().unwrap());
+        if self.e_args.is_some() && ERR_PRINTABLE_VALS.contains(&self.e_type) {
+            let field = format!("Value: '{}'", self.e_args.as_ref().unwrap());
             result.push(field);
         }
 
-        if self.e_args.is_some() && ERR_PRINTABLE_VALS.contains(&self.e_type) {
-            let field = format!("Value: '{}'", self.e_args.as_ref().unwrap());
+        if self.e_pos.is_some() {
+            const ERR_AREA_RANGE: usize = 10;
+            let pos = self.e_pos.as_ref().unwrap();
+            let err_area_left = max(*pos as isize - ERR_AREA_RANGE as isize, 0) as usize;
+            let err_marker = (0..pos-err_area_left).map(|_| " ").collect::<String>() + "^";
+            let prog_area = PROG.with(|prog| {
+                let borrowed_prog = prog.borrow();
+                let err_area_right = min(pos + ERR_AREA_RANGE, borrowed_prog.len()-1); //deal with whitespaces
+                String::from(&borrowed_prog[err_area_left..=err_area_right])
+            });
+            let field = format!("Position: {}\n{area}\n{marker}", 
+                pos, 
+                area = prog_area, 
+                marker = err_marker);
             result.push(field);
         }
 

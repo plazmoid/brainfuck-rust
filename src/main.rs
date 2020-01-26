@@ -8,8 +8,8 @@ use std::{
 mod errors;
 mod parser;
 use errors::{BFParseError::*, BFError};
+use parser::MAX_PROG_LEN;
 
-const MAX_PROG_LEN: usize = 1000000;
 
 fn read_prog(mut args: env::Args) -> Result<String, BFError> {
     match args.nth(1) {
