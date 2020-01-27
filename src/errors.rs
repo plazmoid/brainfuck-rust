@@ -4,10 +4,6 @@ use std::{
     cmp::{max, min}
 };
 
-use crate::parser::{
-    PROG
-};
-
 #[derive(PartialEq)]
 pub enum BFParseError {
     BraNoClose,
@@ -47,21 +43,41 @@ const ERR_PRINTABLE_VALS: [BFParseError; 1] = [
 type ErrArgs = Option<String>;
 type ErrFilename = Option<String>;
 type ErrPos = Option<usize>;
+type ErrArea = Option<String>;
 
 pub struct BFError {
     e_file: ErrFilename,
     e_type: BFParseError,
     e_pos: ErrPos,
+    e_area: ErrArea,
     e_args: ErrArgs
 }
 
 impl BFError {
+    const ERR_AREA_RANGE: usize = 10;
+    
     pub fn new(err: BFParseError, pos: ErrPos, args: ErrArgs) -> Self {
         BFError {
             e_file: env::args().nth(1),
             e_type: err, 
             e_pos: pos, 
+            e_area: None,
             e_args: args
+        }
+    }
+}
+
+impl BFError {
+    pub fn create_err_area(&mut self, prog: &Vec<char>) {
+        if self.e_pos.is_some() {
+            let pos = self.e_pos.as_ref().unwrap();
+            let err_area_left = max(*pos as isize - Self::ERR_AREA_RANGE as isize, 0) as usize;
+            let err_marker = (0..pos-err_area_left).map(|_| " ").collect::<String>() + "^";
+            let err_area_right = min(pos + Self::ERR_AREA_RANGE, prog.len()-1); //deal with whitespaces
+            let err_area = &prog[err_area_left..=err_area_right]
+                .into_iter()
+                .collect::<String>();
+            self.e_area = Some(format!("{}\n{}", err_area, err_marker));
         }
     }
 }
@@ -84,19 +100,12 @@ impl fmt::Debug for BFError {
         }
 
         if self.e_pos.is_some() {
-            const ERR_AREA_RANGE: usize = 10;
             let pos = self.e_pos.as_ref().unwrap();
-            let err_area_left = max(*pos as isize - ERR_AREA_RANGE as isize, 0) as usize;
-            let err_marker = (0..pos-err_area_left).map(|_| " ").collect::<String>() + "^";
-            let prog_area = PROG.with(|prog| {
-                let borrowed_prog = prog.borrow();
-                let err_area_right = min(pos + ERR_AREA_RANGE, borrowed_prog.len()-1); //deal with whitespaces
-                String::from(&borrowed_prog[err_area_left..=err_area_right])
-            });
-            let field = format!("Position: {}\n{area}\n{marker}", 
-                pos, 
-                area = prog_area, 
-                marker = err_marker);
+            let area = match self.e_area.as_ref() {
+                Some(a) => a,
+                None => ""
+            };
+            let field = format!("Position: {}{}", pos, area);
             result.push(field);
         }
 

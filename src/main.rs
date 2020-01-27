@@ -3,12 +3,14 @@ use std::{
     fs::File,
     io::{prelude::*, stdin},
     process::exit,
+    vec::Vec
 };
 
 mod errors;
 mod parser;
+mod automata;
 use errors::{BFParseError::*, BFError};
-use parser::MAX_PROG_LEN;
+use parser::Reader;
 
 
 fn read_prog(mut args: env::Args) -> Result<String, BFError> {
@@ -27,7 +29,7 @@ fn read_prog(mut args: env::Args) -> Result<String, BFError> {
             }
         }
         None => {
-            let mut inp = String::with_capacity(MAX_PROG_LEN);
+            let mut inp = String::with_capacity(Reader::MAX_PROG_LEN);
             match stdin().read_line(&mut inp) {
                 Ok(_) => return Ok(inp),
                 Err(e) => panic!("WTF??? {}", e),
@@ -36,18 +38,15 @@ fn read_prog(mut args: env::Args) -> Result<String, BFError> {
     }
 }
 
-// TODO:
-// add error cursor
-//// break source by 30 chars on line and highlight
-
 fn main() {
     let program = read_prog(env::args()).unwrap_or_else(|e| {
         eprintln!("Program loading error: \n{:?}", e);
         exit(1);
     });
 
-    parser::parse(program).unwrap_or_else(|e| {
-        eprintln!("Error: \n{:?}", e);
+    let mut parser = Reader::new();
+    parser.parse(program).unwrap_or_else(|errs: &Vec<BFError>| {
+        errs.iter().for_each(|err| eprintln!("{:?}", err));
         exit(1);
     });
 }

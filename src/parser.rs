@@ -1,8 +1,5 @@
 use std::collections::HashMap;
 use std::io::{stdin, Read};
-use std::cell::{
-    RefCell
-};
 
 use crate::errors::{
     BFError, 
@@ -10,122 +7,145 @@ use crate::errors::{
     BFParseError::*
 };
 
-pub const MAX_PROG_LEN: usize = 1000000;
+use crate::automata::Automata;
 
-thread_local!(
-    pub static PROG: RefCell<String> = RefCell::new(String::new())
-);
+pub struct Reader {
+    head_ptr: usize, // rw-head
+    brackets: HashMap<usize, usize>, // double brackets pairs {pos1: pos2, pos2: pos1}
+    program: Vec<char>, // program's symbols
+    errors: Vec<BFError>,
+    raw_program: String,
+    automata: Automata
+}
 
-fn analyse_brackets(buf: &String) -> Result<HashMap<usize, usize>, BFError> {
-    let mut unclosed: Vec<usize> = Vec::new();
-    let mut brackets: HashMap<usize, usize> = HashMap::new();
-    for (i, ch) in buf.chars().enumerate() {
-        match ch {
-            '[' => {
-                unclosed.push(i);
-            }
-            ']' => {
-                if let Some(pos) = unclosed.pop() {
-                    brackets.insert(i, pos);
-                    brackets.insert(pos, i);
-                } else {
-                    return Err(BFError::new(BraNoOpen, Some(i), None));
-                }
-            }
-            _ => (),
+impl Reader {
+    pub const MAX_PROG_LEN: usize = 1000000;
+
+    pub fn new() -> Self {
+        Reader {
+            head_ptr: 0,
+            brackets: HashMap::new(),
+            program: Vec::new(),
+            errors: Vec::new(),
+            raw_program: String::new(),
+            automata: Automata::new()
         }
     }
 
-    match unclosed.pop() { 
-        Some(pos) => Err(BFError::new(BraNoClose, Some(pos), None)),
-        None => Ok(brackets),
+    // move all shit to iterator
+    // fun that counts row/col from head_ptr and \ns
+    // remove anime and Cursor
+    fn next(&mut self) -> Option<&char> {
+        let val = self.program.get(self.head_ptr);
+        self.head_ptr += 1; 
+        val
     }
-}
 
-pub fn parse(program: String) -> Result<(), BFError> {
-    const CELLS_AMOUNT: usize = 30000;
-    let mut to_print: Vec<char> = Vec::new();
-    let mut cells: Vec<u8> = vec![0; CELLS_AMOUNT];
-    let mut cell_ptr: usize = 0;
-    let mut head_ptr = 0;
-    let mut curr_symbol = '\0';
-    let prog_symbols: Vec<char> = program.chars().collect();
-    let brackets = analyse_brackets(&program)?;
-    
-    PROG.with(|prog| {
-        *prog.borrow_mut() += &program;
-    });
+    fn goto_bra_pair(&mut self, idx: usize) {
+        self.head_ptr = self.brackets[&idx]
+    }
 
-    let res: Result<(), BFParseError> = loop {
-        curr_symbol = match prog_symbols.get(head_ptr) {
-            Some(s) => *s,
-            None => break Ok(()),
+    fn has_printable(&self) -> bool {
+        self.automata.chars_to_print.len() > 0
+    }
+
+    fn get_output(&self) -> String {
+        self.automata.chars_to_print.iter().collect::<String>()
+    }
+
+    fn analyse_brackets(&mut self) {
+        let mut unclosed: Vec<usize> = Vec::new();
+        for (i, ch) in self.program.iter().enumerate() {
+            match ch {
+                '[' => {
+                    unclosed.push(i);
+                }
+                ']' => {
+                    if let Some(pos) = unclosed.pop() {
+                        self.brackets.insert(i, pos);
+                        self.brackets.insert(pos, i);
+                    } else {
+                        self.errors.push(BFError::new(BraNoOpen, Some(i), None));
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        unclosed.into_iter().for_each(|pos| {
+            self.errors.push(BFError::new(BraNoClose, Some(pos), None))
+        });
+    }
+
+    pub fn parse(&mut self, program: String) -> Result<(), &Vec<BFError>> {
+        self.raw_program = program;
+        self.program = self.raw_program.chars().collect();
+        self.analyse_brackets();
+
+        loop {
+            let curr_symbol = match self.next() {
+                Some(s) => *s,
+                None => break,
+            };
+
+            let result: Result<(), BFParseError> = match curr_symbol {
+                '+' => self.automata.inc(),
+                '-' => self.automata.dec(),
+                '>' => self.automata.rmove(),
+                '<' => self.automata.lmove(),
+                '.' => self.automata.out(),
+                ',' => {
+                    match stdin().bytes().next() {
+                        Some(c) => match c {
+                            Ok(chr) => self.automata.set(chr as u8),
+                            Err(_) => Err(IoStdinErr),
+                        },
+                        None => Err(IoStdinErr),
+                    }
+                },
+                '[' => {
+                    if self.automata.get() == 0 {
+                        self.goto_bra_pair(self.head_ptr - 1)
+                    }
+                    Ok(())
+                },
+                ']' => {
+                    if self.automata.get() != 0 {
+                        self.goto_bra_pair(self.head_ptr - 1)
+                    }
+                    Ok(())
+                },
+                ' ' | '\n' | '\t' => Ok(()),
+                _ => Err(IoUndefChar),
+            };
+            if result.is_err() {
+                let err = BFError::new(
+                    result.unwrap_err(), 
+                    Some(self.head_ptr), 
+                    Some(curr_symbol.to_string())
+                );
+                self.errors.push(err)
+            }
         };
-
-        match curr_symbol {
-            '+' => {
-                if cells[cell_ptr] == 255 {
-                    break Err(CellMaxConstrOvrfl);
-                }
-                cells[cell_ptr] += 1;
+        
+        if self.errors.len() > 0 {
+            let prog_lines = self.raw_program.split("\n");
+            for err in self.errors.iter_mut() {
+                err.create_err_area(&self.program);
             }
-            '-' => {
-                if cells[cell_ptr] == 0 {
-                    break Err(CellMinConstrOvrfl);
-                }
-                cells[cell_ptr] -= 1;
-            }
-            '>' => {
-                cell_ptr += 1;
-                if cell_ptr == CELLS_AMOUNT {
-                    break Err(CellNoMore);
-                }
-            }
-            '<' => {
-                if cell_ptr == 0 {
-                    break Err(CellNegativeIdx);
-                }
-                cell_ptr -= 1;
-            }
-            '.' => {
-                to_print.push(cells[cell_ptr] as char);
-            }
-            ',' => {
-                let ch: u8 = match stdin().bytes().next() {
-                    Some(c) => match c {
-                        Ok(chr) => chr as u8,
-                        Err(_) => break Err(IoStdinErr),
-                    },
-                    None => break Err(IoStdinErr),
-                };
-                cells[cell_ptr] = ch;
-            }
-            '[' => {
-                if cells[cell_ptr] == 0 {
-                    head_ptr = brackets[&head_ptr];
-                }
-            }
-            ']' => {
-                if cells[cell_ptr] != 0 {
-                    head_ptr = brackets[&head_ptr]
-                }
-            }
-            ' ' | '\n' | '\t' => (),
-
-            _ => break Err(IoUndefChar),
+            /*self.errors.iter_mut().for_each(|err| {
+                err.create_err_area(&self.program)
+            }); FIXIT!!1 */
+            return Err(&self.errors);
         }
-        head_ptr += 1;
-    };
-    
-    if let Err(e_type) = res {
-        return Err(BFError::new(e_type, Some(head_ptr), Some(curr_symbol.to_string())));
+        if self.has_printable() {
+            print!("{}", self.get_output());
+        }
+        Ok(())
     }
-    if to_print.len() > 0 {
-        print!("{}", to_print.into_iter().collect::<String>());
-    }
-    Ok(())
 }
 
+/* TODO: rewrite this sheeet
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,3 +191,4 @@ mod tests {
         assert!(result.is_err());
     }
 }
+*/
