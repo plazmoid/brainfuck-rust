@@ -102,8 +102,8 @@ impl fmt::Debug for BFError {
         if self.e_pos.is_some() {
             let pos = self.e_pos.as_ref().unwrap();
             let area = match self.e_area.as_ref() {
-                Some(a) => a,
-                None => ""
+                Some(area) => String::from("\n") + area,
+                None => "".to_string()
             };
             let field = format!("Position: {}{}", pos, area);
             result.push(field);
