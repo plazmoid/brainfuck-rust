@@ -34,7 +34,7 @@ impl fmt::Debug for BFParseError {
     }
 }
 
-const ERR_PROMPT: &str = ">>> ";
+const ERR_PROMPT: &str = "<!> ";
 // a crutch, vec of error types that allowed to print values
 const ERR_PRINTABLE_VALS: [BFParseError; 1] = [
     BFParseError::IoUndefChar
@@ -85,10 +85,17 @@ impl BFError {
             };
             let prog_line = prog_lines[row];
             let err_area_left = max(col as isize - Self::ERR_AREA_RANGE as isize, 0) as usize;
-            let err_marker = (0..col-err_area_left).map(|_| " ").collect::<String>() + "^";
             let err_area_right = min(col + Self::ERR_AREA_RANGE, prog_line.len()-1);
             let err_area = &prog_line[err_area_left..=err_area_right];
+            let err_marker = (0..col-err_area_left).map(|_| " ").collect::<String>() + "^";
             self.e_area = Some(format!("{}\n{}", err_area, err_marker));
+            self.e_file = {
+                if self.e_file.is_some() {
+                    Some(format!("{}:{}:{}", self.e_file.as_ref().unwrap(), row + 1, col + 1))
+                } else {
+                    None
+                }
+            };
         }
     }
 }
@@ -111,12 +118,11 @@ impl fmt::Debug for BFError {
         }
 
         if self.e_pos.is_some() {
-            let pos = self.e_pos.as_ref().unwrap();
             let area = match self.e_area.as_ref() {
-                Some(area) => String::from("\n") + area,
+                Some(area) => format!("\n{}\n", area),
                 None => "".to_string()
             };
-            let field = format!("Position: {}{}", pos, area);
+            let field = format!("Position: {}", area);
             result.push(field);
         }
 
