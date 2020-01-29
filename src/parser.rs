@@ -11,7 +11,8 @@ use crate::automata::Automata;
 
 pub struct Reader {
     head_ptr: usize, // rw-head
-    brackets: HashMap<usize, usize>, // double brackets pairs {pos1: pos2, pos2: pos1}
+    // double brackets pairs {pos1: pos2, pos2: pos1}
+    brackets: HashMap<usize, usize>,
     program: Vec<char>, // program's symbols
     errors: Vec<BFError>,
     raw_program: String,
@@ -121,7 +122,7 @@ impl Reader {
             if result.is_err() {
                 let err = BFError::new(
                     result.unwrap_err(), 
-                    Some(self.head_ptr), 
+                    Some(self.head_ptr - 1), 
                     Some(curr_symbol.to_string())
                 );
                 self.errors.push(err)
@@ -129,9 +130,9 @@ impl Reader {
         };
         
         if self.errors.len() > 0 {
-            let prog_lines = self.raw_program.split("\n");
+            let prog_split = self.raw_program.split("\n").collect::<Vec<&str>>();
             for err in self.errors.iter_mut() {
-                err.create_err_area(&self.program);
+                err.create_err_area(&prog_split);
             }
             /*self.errors.iter_mut().for_each(|err| {
                 err.create_err_area(&self.program)

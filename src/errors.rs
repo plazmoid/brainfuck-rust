@@ -68,15 +68,26 @@ impl BFError {
 }
 
 impl BFError {
-    pub fn create_err_area(&mut self, prog: &Vec<char>) {
+    pub fn create_err_area(&mut self, prog_lines: &Vec<&str>) {
         if self.e_pos.is_some() {
             let pos = self.e_pos.as_ref().unwrap();
-            let err_area_left = max(*pos as isize - Self::ERR_AREA_RANGE as isize, 0) as usize;
-            let err_marker = (0..pos-err_area_left).map(|_| " ").collect::<String>() + "^";
-            let err_area_right = min(pos + Self::ERR_AREA_RANGE, prog.len()-1); //deal with whitespaces
-            let err_area = &prog[err_area_left..=err_area_right]
-                .into_iter()
-                .collect::<String>();
+            let mut lnsum = 0;
+            let (mut row, mut col) = (0, 0);
+            for (i, line) in prog_lines.iter().enumerate() {
+                let lnlen = line.len();
+                if lnsum + lnlen > *pos {
+                    row = i;
+                    col = *pos - lnsum - i; // absolute pos - prev lines - splitted \n
+                    break;
+                } else {
+                    lnsum += lnlen;
+                }
+            };
+            let prog_line = prog_lines[row];
+            let err_area_left = max(col as isize - Self::ERR_AREA_RANGE as isize, 0) as usize;
+            let err_marker = (0..col-err_area_left).map(|_| " ").collect::<String>() + "^";
+            let err_area_right = min(col + Self::ERR_AREA_RANGE, prog_line.len()-1);
+            let err_area = &prog_line[err_area_left..=err_area_right];
             self.e_area = Some(format!("{}\n{}", err_area, err_marker));
         }
     }
